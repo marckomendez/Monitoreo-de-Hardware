@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="256" height="256" rx="28" fill="transparent"/>
+  <!-- Chip body -->
+  <rect x="40" y="40" width="176" height="176" rx="20" fill="#0F172A"/>
+  <!-- Pins -->
+  <g fill="#0F172A">
+    <!-- Top pins -->
+    <rect x="64" y="28" width="16" height="20" rx="4"/>
+    <rect x="96" y="28" width="16" height="20" rx="4"/>
+    <rect x="128" y="28" width="16" height="20" rx="4"/>
+    <rect x="160" y="28" width="16" height="20" rx="4"/>
+    <!-- Bottom pins -->
+    <rect x="64" y="208" width="16" height="20" rx="4"/>
+    <rect x="96" y="208" width="16" height="20" rx="4"/>
+    <rect x="128" y="208" width="16" height="20" rx="4"/>
+    <rect x="160" y="208" width="16" height="20" rx="4"/>
+    <!-- Left pins -->
+    <rect x="28" y="64" width="20" height="16" rx="4"/>
+    <rect x="28" y="96" width="20" height="16" rx="4"/>
+    <rect x="28" y="128" width="20" height="16" rx="4"/>
+    <rect x="28" y="160" width="20" height="16" rx="4"/>
+    <!-- Right pins -->
+    <rect x="208" y="64" width="20" height="16" rx="4"/>
+    <rect x="208" y="96" width="20" height="16" rx="4"/>
+    <rect x="208" y="128" width="20" height="16" rx="4"/>
+    <rect x="208" y="160" width="20" height="16" rx="4"/>
+  </g>
+  <!-- Inner container -->
+  <rect x="64" y="64" width="128" height="128" rx="12" fill="#0B122B" stroke="#2DD4BF" stroke-width="2"/>
+  <!-- ECG line -->
+  <path d="M72 128 L100 128 L110 100 L120 156 L136 92 L148 128 L184 128"
+        stroke="#22D3EE" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- Glow -->
+  <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+    <feGaussianBlur stdDeviation="4" result="blur"/>
+    <feMerge>
+      <feMergeNode in="blur"/>
+      <feMergeNode in="SourceGraphic"/>
+    </feMerge>
+  </filter>
+</svg>
