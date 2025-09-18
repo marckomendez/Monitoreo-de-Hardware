@@ -1,7 +1,5 @@
-// Archivo de validaciones para el monitoreo de hardware
 function validarInformacion() {
     console.log("Validando información del sistema...");
-    // Lógica de validación aquí
 }
 
 window.onload = validarInformacion;
