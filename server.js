@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const hardwareRoutes = require('./routes/hardware');
 const authRoutes = require('./routes/auth');
+const usuariosRoutes = require('./routes/usuarios');
 const sql = require('mssql');
 require('dotenv').config();
 
@@ -12,6 +13,7 @@ app.use(express.static(__dirname));
 
 app.use('/api/hardware', hardwareRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/usuarios', usuariosRoutes);
 
 const dbConfig = {
     user: process.env.DB_USER,

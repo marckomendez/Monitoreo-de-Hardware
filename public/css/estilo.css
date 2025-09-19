@@ -202,9 +202,107 @@ body {
     min-height: 24px;
 }
 
-@media (max-width: 1100px) {
-    #contenido {
-        flex-direction: column;
-        align-items: center;
-    }
+.tabla-usuarios {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 30px 0;
+    background: rgba(30, 30, 60, 0.97);
+    color: #fff;
+    border-radius: 12px;
+    overflow: hidden;
+}
+.tabla-usuarios th, .tabla-usuarios td {
+    padding: 12px 16px;
+    text-align: left;
+}
+.tabla-usuarios th {
+    background: #5f72bd;
+}
+.tabla-usuarios tr:nth-child(even) {
+    background: rgba(255,255,255,0.04);
+}
+.tabla-usuarios tr:hover {
+    background: #3a1c71;
+}
+.boton.crear-usuario {
+    background: #43e97b;
+    color: #222;
+    margin-bottom: 10px;
+    border-radius: 8px;
+    padding: 10px 24px;
+    font-weight: bold;
+    font-size: 1rem;
+    border: none;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+.boton.crear-usuario:hover {
+    background: #38c172;
+}
+.usuarios-header {
+    text-align: center;
+    margin-top: 40px;
+}
+
+.modal-usuario {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+}
+.modal-contenido {
+    background: #23234a;
+    padding: 30px 30px 20px 30px;
+    border-radius: 16px;
+    min-width: 320px;
+    color: #fff;
+    box-shadow: 0 8px 32px 0 rgba(31,38,135,0.37);
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+}
+.modal-contenido h3 {
+    margin-bottom: 18px;
+    text-align: center;
+}
+#formUsuario label {
+    margin-top: 10px;
+    margin-bottom: 2px;
+    font-size: 1rem;
+}
+#formUsuario input, #formUsuario select {
+    padding: 8px;
+    border-radius: 6px;
+    border: none;
+    margin-bottom: 8px;
+    font-size: 1rem;
+}
+.modal-botones {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 12px;
+}
+.modal-botones button {
+    padding: 8px 18px;
+    border-radius: 8px;
+    border: none;
+    font-weight: bold;
+    font-size: 1rem;
+    cursor: pointer;
+    background: #43e97b;
+    color: #222;
+    transition: background 0.3s;
+}
+.modal-botones button[type="button"] {
+    background: #ffaf7b;
+    color: #222;
+}
+.modal-botones button:hover {
+    background: #38c172;
+}
+.modal-botones button[type="button"]:hover {
+    background: #d76d77;
 }

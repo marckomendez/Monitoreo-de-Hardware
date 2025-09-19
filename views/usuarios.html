@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Usuarios</title>
+    <link rel="stylesheet" href="../public/css/estilo.css">
+</head>
+<body>
+    <div class="usuarios-header">
+        <h2>Gestión de Usuarios</h2>
+    </div>
+    <div id="usuarios-container">
+        <button class="boton crear-usuario" id="btnCrearUsuario">Crear Usuario</button>
+        <table class="tabla-usuarios" id="tablaUsuarios">
+            <thead>
+                <tr>
+                    <th>Nombre</th>
+                    <th>Correo</th>
+                    <th>Rol</th>
+                    <th>Estado</th>
+                    <th>Último acceso</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Usuarios dinámicos -->
+            </tbody>
+        </table>
+        <div id="usuarios-lista"></div>
+    </div>
+    <button class="boton regresar" id="btnRegresarMenu" onclick="window.location.href='index.html'">Menú Principal</button>
+
+    <div id="modalUsuario" class="modal-usuario" style="display:none;">
+        <div class="modal-contenido">
+            <h3 id="tituloModalUsuario">Crear Usuario</h3>
+            <form id="formUsuario">
+                <input type="hidden" id="usuarioId">
+                <label>Nombre</label>
+                <input type="text" id="nombreUsuario" required>
+                <label>Correo</label>
+                <input type="email" id="emailUsuario" required>
+                <label>Rol</label>
+                <select id="rolUsuario">
+                    <option value="1">Admin</option>
+                    <option value="2">Consulta</option>
+                </select>
+                <label id="labelPassword">Contraseña</label>
+                <input type="password" id="passwordUsuario" required>
+                <div class="modal-botones">
+                    <button type="submit" id="btnGuardarUsuario">Guardar</button>
+                    <button type="button" onclick="cerrarModalUsuario()">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="../public/js/usuarios.js"></script>
+</body>
+</html>
