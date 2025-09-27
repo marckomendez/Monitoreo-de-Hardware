@@ -107,6 +107,7 @@ async function evaluarUmbrales(pool, hostId, metrica, valor, lecturaId) {
 }
 
 /** Captura + inserciones + evaluación de umbrales */
+
 async function capturarYEvaluar(pool) {
   const hostId = await ensureHost(pool);
 
@@ -130,8 +131,8 @@ async function capturarYEvaluar(pool) {
   }
 
   // DISK_READ/WRITE_MBPS (si no hay métricas, usa 0.00)
-  const rSec = Number.isFinite(diskIO.rIO_sec) ? Number(diskIO.rIO_sec) : 0;
-  const wSec = Number.isFinite(diskIO.wIO_sec) ? Number(diskIO.wIO_sec) : 0;
+  const rSec = diskIO && Number.isFinite(diskIO.rIO_sec) ? Number(diskIO.rIO_sec) : 0;
+  const wSec = diskIO && Number.isFinite(diskIO.wIO_sec) ? Number(diskIO.wIO_sec) : 0;
   lecturas.push({ metrica: 'DISK_READ_MBPS',  valor: Number((rSec / 1024).toFixed(2)),  unidad: 'MB/s' });
   lecturas.push({ metrica: 'DISK_WRITE_MBPS', valor: Number((wSec / 1024).toFixed(2)),  unidad: 'MB/s' });
 
@@ -149,11 +150,26 @@ async function capturarYEvaluar(pool) {
   // Inserta y evalúa
   const resultados = [];
   const poolResolved = await poolPromise;
+  // --- EMITIR POR WEBSOCKET ---
+  let io;
+  try {
+    io = require('../server').io;
+  } catch {}
   for (const l of lecturas) {
     try {
       const lecturaId = await insertLectura(poolResolved, hostId, l.metrica, l.valor, l.unidad);
       const abiertas = await evaluarUmbrales(poolResolved, hostId, l.metrica, l.valor, lecturaId);
       resultados.push({ ...l, lectura_id: lecturaId, alertas_abiertas: abiertas });
+      // Emitir evento en tiempo real
+      if (io) {
+        io.emit('nueva_lectura', {
+          metrica: l.metrica,
+          valor: l.valor,
+          unidad: l.unidad,
+          tomado_en: new Date().toISOString(),
+          host_id: hostId
+        });
+      }
     } catch (e) {
       console.error('[captura] error insertando/evaluando', l.metrica, e?.message || e);
     }

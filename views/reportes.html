@@ -7,6 +7,9 @@
   <link rel="stylesheet" href="/public/css/estilo.css"/>
   <link rel="icon" type="image/png" href="/dimo_icon_32.png"/>
   <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
+  <script src="https://cdn.socket.io/4.7.4/socket.io.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
   <script src="/public/js/reportes.js" defer></script>
 </head>
 <body>
@@ -53,14 +56,17 @@
         </label>
         <label><input type="checkbox" id="suavizar"> Media móvil (5)</label>
 
-        <button class="btn" id="btnAplicar">Aplicar</button>
-        <button class="btn" id="btnCSV">CSV (métrica)</button>
-        <button class="btn" id="btnCSVAll">CSV (todo)</button>
+  <button class="btn" id="btnAplicar">Aplicar</button>
+  <button class="btn" id="btnCSV">CSV (métrica)</button>
+  <button class="btn" id="btnCSVAll">CSV (todo)</button>
+  <button class="btn" id="btnPDF">Exportar PDF</button>
       </div>
 
       <h3>Serie de lecturas</h3>
       <div class="msg" id="msg"></div>
-      <canvas id="chartLecturas" height="110"></canvas>
+      <div id="reporte-captura">
+        <canvas id="chartLecturas" height="110"></canvas>
+      </div>
     </div>
 
     <div class="alertas-card">
@@ -77,7 +83,7 @@
         <button class="btn" id="btnAplicarA">Aplicar</button>
       </div>
       <h3>Resumen de alertas</h3>
-      <div class="charts-grid">
+      <div id="alertas-captura" class="charts-grid">
         <div><canvas id="chartSeveridad" height="140"></canvas></div>
         <div><canvas id="chartMetrica" height="140"></canvas></div>
         <div style="grid-column:1 / -1"><canvas id="chartSerie" height="120"></canvas></div>

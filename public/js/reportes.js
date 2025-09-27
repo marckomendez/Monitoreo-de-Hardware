@@ -1,3 +1,35 @@
+// --- Exportar PDF de los reportes y alertas ---
+async function exportarPDFReportes() {
+  const lecturas = document.getElementById('reporte-captura');
+  const alertas = document.getElementById('alertas-captura');
+  if (!lecturas || !alertas) return msg('No se encontró el área de reporte para exportar', 'error');
+  msg('Generando PDF, espera...');
+  setTimeout(async () => {
+    // Captura lecturas
+    const canvasLecturas = await html2canvas(lecturas, { backgroundColor: '#222' });
+    const imgLecturas = canvasLecturas.toDataURL('image/png');
+    // Captura alertas
+    const canvasAlertas = await html2canvas(alertas, { backgroundColor: '#222' });
+    const imgAlertas = canvasAlertas.toDataURL('image/png');
+    const pdf = new window.jspdf.jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    // Lecturas
+    let y = 20;
+    let imgWidth = pageWidth - 40;
+    let imgHeight = canvasLecturas.height * (imgWidth / canvasLecturas.width);
+    pdf.addImage(imgLecturas, 'PNG', 20, y, imgWidth, imgHeight);
+    y += imgHeight + 20;
+    // Alertas (nueva página si no cabe)
+    imgHeight = canvasAlertas.height * (imgWidth / canvasAlertas.width);
+    if (y + imgHeight > pdf.internal.pageSize.getHeight()) {
+      pdf.addPage();
+      y = 20;
+    }
+    pdf.addImage(imgAlertas, 'PNG', 20, y, imgWidth, imgHeight);
+    pdf.save('reporte-monitoreo.pdf');
+    msg('PDF generado.', 'success');
+  }, 500);
+}
 // /public/js/reportes.js
 let currentUser = null;
 let chLecturas, chSeveridad, chMetrica, chSerie;
@@ -37,14 +69,18 @@ function construirTopbar(user){
   }
 }
 
-function toLocalInputValue(d){const p=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;}
+// Convierte un Date a string para input datetime-local en UTC
+function toUTCInputValue(d){
+  const p=n=>String(n).padStart(2,'0');
+  return `${d.getUTCFullYear()}-${p(d.getUTCMonth()+1)}-${p(d.getUTCDate())}T${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`;
+}
 function initDefaults(){
   const to=new Date(); const from=new Date(to.getTime()-24*3600*1000);
-  document.getElementById('from').value=toLocalInputValue(from);
-  document.getElementById('to').value=toLocalInputValue(to);
+  document.getElementById('from').value=toUTCInputValue(from);
+  document.getElementById('to').value=toUTCInputValue(to);
   const toA=new Date(); const fromA=new Date(toA.getTime()-30*24*3600*1000);
-  document.getElementById('fromA').value=toLocalInputValue(fromA);
-  document.getElementById('toA').value=toLocalInputValue(toA);
+  document.getElementById('fromA').value=toUTCInputValue(fromA);
+  document.getElementById('toA').value=toUTCInputValue(toA);
 }
 function destroyCharts(){ [chLecturas,chSeveridad,chMetrica,chSerie].forEach(c=>c&&c.destroy()); chLecturas=chSeveridad=chMetrica=chSerie=null; }
 
@@ -96,8 +132,9 @@ function movingAverage(vals, window=5){
 async function cargarLecturas(){
   const metrica=document.getElementById('metrica').value;
   const host=document.getElementById('host').value.trim();
-  const from=new Date(document.getElementById('from').value);
-  const to=new Date(document.getElementById('to').value);
+  // Siempre interpreta los valores como UTC
+  const from = new Date(document.getElementById('from').value + 'Z');
+  const to = new Date(document.getElementById('to').value + 'Z');
   const resol=document.getElementById('resolucion').value;
   const tipo=document.getElementById('tipoGrafico').value;
   const suavizar=document.getElementById('suavizar').checked;
@@ -198,8 +235,9 @@ async function descargarCSVTodo(){
 
 async function cargarResumenAlertas(){
   const estado=document.getElementById('estadoA').value;
-  const from=new Date(document.getElementById('fromA').value);
-  const to=new Date(document.getElementById('toA').value);
+  // Siempre interpreta los valores como UTC
+  const from = new Date(document.getElementById('fromA').value + 'Z');
+  const to = new Date(document.getElementById('toA').value + 'Z');
 
   const qs=new URLSearchParams({ estado, from:tzToISO(from), to:tzToISO(to) });
   const r=await apiGET(`/api/report/alertas/resumen?${qs.toString()}`);
@@ -234,8 +272,31 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   document.getElementById('btnAplicar').onclick = async ()=>{ if(chLecturas) chLecturas.destroy(); await cargarLecturas(); };
   document.getElementById('btnCSV').onclick = descargarCSVActual;
   document.getElementById('btnCSVAll').onclick = descargarCSVTodo;
+  document.getElementById('btnPDF').onclick = exportarPDFReportes;
   document.getElementById('btnAplicarA').onclick = async ()=>{ destroyCharts(); await cargarResumenAlertas(); };
 
   await cargarLecturas();
   await cargarResumenAlertas();
+
+  // --- WebSocket para lecturas en tiempo real ---
+  if (typeof io !== 'undefined') {
+    const socket = io();
+    socket.on('nueva_lectura', (data) => {
+      // Solo actualiza si la métrica y host coinciden con el filtro actual
+      const metricaActual = document.getElementById('metrica').value;
+      const hostActual = document.getElementById('host').value.trim();
+      if (data.metrica === metricaActual && (!hostActual || String(data.host_id) === hostActual)) {
+        if (chLecturas) {
+          chLecturas.data.labels.push(new Date(data.tomado_en).toLocaleString());
+          chLecturas.data.datasets[0].data.push(Number(data.valor));
+          // Limita a los últimos 100 puntos
+          if (chLecturas.data.labels.length > 100) {
+            chLecturas.data.labels.shift();
+            chLecturas.data.datasets[0].data.shift();
+          }
+          chLecturas.update();
+        }
+      }
+    });
+  }
 });
