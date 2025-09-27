@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Bitácora - DIMO</title>
+  <link rel="stylesheet" href="/public/css/estilo.css"/>
+  <link rel="icon" type="image/png" href="/dimo_icon_32.png"/>
+  <script src="/public/js/bitacora.js" defer></script>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand" onclick="location.href='index.html'">DIMO</div>
+  <nav id="nav"></nav>
+  <div class="session" id="session"></div>
+</header>
+
+<main class="wrap">
+  <div class="alertas-card">
+    <div class="filters" style="flex-wrap:wrap; gap:8px 12px">
+      <label>Desde: <input type="datetime-local" id="from"></label>
+      <label>Hasta: <input type="datetime-local" id="to"></label>
+      <label>Usuario ID: <input type="number" id="usuario_id" min="1" placeholder="(opcional)" style="width:110px"></label>
+      <label>Buscar: <input id="q" placeholder="acción o detalle" style="min-width:220px"></label>
+      <button class="btn" id="btnBuscar">Buscar</button>
+      <button class="btn" id="btnLimpiar">Limpiar</button>
+    </div>
+
+    <h3>Bitácora del sistema</h3>
+    <div class="msg" id="msg"></div>
+
+    <div class="table-responsive">
+      <table class="tabla">
+        <thead>
+          <tr>
+            <th style="width:110px">Fecha</th>
+            <th style="width:160px">Usuario</th>
+            <th style="width:140px">Acción</th>
+            <th>Detalle</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+
+    <div class="paginacion" id="paginacion" style="display:flex; gap:8px; align-items:center; justify-content:flex-end; margin-top:12px">
+      <button class="btn" id="prev">«</button>
+      <span id="pageInfo"></span>
+      <button class="btn" id="next">»</button>
+    </div>
+  </div>
+</main>
+</body>
+</html>

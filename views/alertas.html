@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Alertas - DIMO</title>
+  <link rel="stylesheet" href="/public/css/estilo.css"/>
+  <link rel="icon" type="image/png" href="/dimo_icon_32.png"/>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand" onclick="location.href='index.html'">DIMO</div>
+    <nav id="nav"></nav>
+    <div class="session" id="session"></div>
+  </header>
+
+  <main class="wrap">
+    <div class="alertas-card">
+      <div class="filters">
+        <label>
+          Estado:
+          <select id="fEstado">
+            <option value="ABIERTA">ABIERTA</option>
+            <option value="CERRADA">CERRADA</option>
+            <option value="TODAS">TODAS</option>
+          </select>
+        </label>
+        <label>
+          Host ID:
+          <input id="fHost" type="number" min="1" placeholder="(opcional)"/>
+        </label>
+        <button id="btnBuscar" class="btn">Buscar</button>
+      </div>
+
+      <h3>Alertas</h3>
+      <div id="msg" class="msg"></div>
+      <table class="tabla-usuarios" id="tblAlertas">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Métrica</th>
+            <th>Umbral</th>
+            <th>Valor actual</th>
+            <th>Severidad</th>
+            <th>Creada</th>
+            <th>Acción</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </main>
+
+  <script src="/public/js/alertas.js" defer></script>
+</body>
+</html>

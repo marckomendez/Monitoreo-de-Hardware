@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Reportes - DIMO</title>
+  <link rel="stylesheet" href="/public/css/estilo.css"/>
+  <link rel="icon" type="image/png" href="/dimo_icon_32.png"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
+  <script src="/public/js/reportes.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand" onclick="location.href='index.html'">DIMO</div>
+    <nav id="nav"></nav>
+    <div class="session" id="session"></div>
+  </header>
+
+  <main class="wrap">
+    <div class="alertas-card">
+      <div class="filters" style="flex-wrap:wrap; gap:8px 12px">
+        <label>
+          Métrica:
+          <select id="metrica">
+            <option value="CPU_TEMP_C">CPU_TEMP_C</option>
+            <option value="RAM_USED_GB">RAM_USED_GB</option>
+            <option value="DISK_READ_MBPS">DISK_READ_MBPS</option>
+            <option value="DISK_WRITE_MBPS">DISK_WRITE_MBPS</option>
+            <option value="UPTIME_SEC">UPTIME_SEC</option>
+          </select>
+        </label>
+        <label>Desde: <input type="datetime-local" id="from"></label>
+        <label>Hasta: <input type="datetime-local" id="to"></label>
+        <label>Host ID: <input type="number" id="host" placeholder="(opcional)" min="1" style="width:90px"></label>
+
+        <label>
+          Gráfico:
+          <select id="tipoGrafico">
+            <option value="line">Línea</option>
+            <option value="area">Área</option>
+            <option value="bar">Barras</option>
+          </select>
+        </label>
+        <label>
+          Resolución:
+          <select id="resolucion">
+            <option value="raw">Sin agrupar</option>
+            <option value="1m">1 min</option>
+            <option value="5m">5 min</option>
+            <option value="15m">15 min</option>
+            <option value="1h">1 h</option>
+          </select>
+        </label>
+        <label><input type="checkbox" id="suavizar"> Media móvil (5)</label>
+
+        <button class="btn" id="btnAplicar">Aplicar</button>
+        <button class="btn" id="btnCSV">CSV (métrica)</button>
+        <button class="btn" id="btnCSVAll">CSV (todo)</button>
+      </div>
+
+      <h3>Serie de lecturas</h3>
+      <div class="msg" id="msg"></div>
+      <canvas id="chartLecturas" height="110"></canvas>
+    </div>
+
+    <div class="alertas-card">
+      <div class="filters" style="flex-wrap:wrap; gap:8px 12px">
+        <label>Estado:
+          <select id="estadoA">
+            <option value="TODAS">TODAS</option>
+            <option value="ABIERTA">ABIERTA</option>
+            <option value="CERRADA">CERRADA</option>
+          </select>
+        </label>
+        <label>Desde: <input type="datetime-local" id="fromA"></label>
+        <label>Hasta: <input type="datetime-local" id="toA"></label>
+        <button class="btn" id="btnAplicarA">Aplicar</button>
+      </div>
+      <h3>Resumen de alertas</h3>
+      <div class="charts-grid">
+        <div><canvas id="chartSeveridad" height="140"></canvas></div>
+        <div><canvas id="chartMetrica" height="140"></canvas></div>
+        <div style="grid-column:1 / -1"><canvas id="chartSerie" height="120"></canvas></div>
+      </div>
+    </div>
+  </main>
+</body>
+</html>

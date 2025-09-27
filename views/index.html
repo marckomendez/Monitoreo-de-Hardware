@@ -1,26 +1,23 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DIMO</title>
-    <link rel="stylesheet" href="../public/css/estilo.css">
-    <link rel="icon" type="image/png" href="../dimo_icon_32.png">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>DIMO</title>
+  <link rel="stylesheet" href="/public/css/estilo.css"/>
+  <link rel="icon" type="image/png" href="/dimo_icon_32.png"/>
 </head>
 <body>
-    <div class="header">
-        <h1>DIMO</h1>
-        <p>Diagnóstico y monitoreo, sin drama.</p>
-    </div>
-    <div class="botones">
-        <button class="boton monitor">Iniciar Monitoreo</button>
-        <button class="boton diagnostico">Ejecutar Diagnóstico</button>
-        <button class="boton admin-usuarios" onclick="window.location.href='usuarios.html'" >Administrar Usuarios</button>
+  <header class="topbar">
+    <div class="brand" onclick="location.href='index.html'">DIMO</div>
+    <nav id="nav"></nav>
+    <div class="session" id="session"></div>
+  </header>
 
-    </div>
-    <div id="contenido">
+  <main id="contenido"></main>
+  <section id="alertas"></section>
 
-    </div>
-    <script src="../public/js/validaciones.js"></script>
+  <script src="/public/js/validaciones.js" defer></script>
+  <script src="/public/js/topbar_common.js" defer></script>
 </body>
 </html>

@@ -1,133 +1,333 @@
-// Estructura inicial para gestión de usuarios
-// Aquí se implementarán las funciones para listar, crear, editar, activar/inactivar y resetear contraseña
+// /public/js/usuarios.js
+// Gestión de usuarios con protección por rol ADMIN, UX y manejo de errores,
+// ahora con topbar y layout consistente al de Umbrales.
 
-document.addEventListener('DOMContentLoaded', () => {
-    // Aquí irá la lógica para cargar usuarios y manejar eventos
-    cargarUsuarios();
-    document.getElementById('btnCrearUsuario').addEventListener('click', mostrarFormularioCrear);
-    mostrarListaUsuarios();
+const API = {
+  base: '/api/usuarios',
+  async getMe() {
+    const r = await fetch('/api/auth/me', { headers: headersAuth() });
+    if (r.status === 401) return redirectLogin();
+    if (!r.ok) throw new Error('No se pudo obtener el perfil');
+    return r.json();
+  }
+};
+
+function headersAuth(json = true) {
+  const token = localStorage.getItem('token');
+  const h = token ? { Authorization: `Bearer ${token}` } : {};
+  return json ? { 'Content-Type': 'application/json', ...h } : h;
+}
+
+function redirectLogin() {
+  localStorage.removeItem('token');
+  localStorage.removeItem('user');
+  window.location.href = '/views/login.html';
+  return null;
+}
+
+function roleName(rol_id) {
+  return ({ 1: 'ADMIN', 2: 'TECNICO', 3: 'CONSULTA' })[rol_id] || String(rol_id);
+}
+
+function notify(msg, type = 'info') {
+  const box = document.getElementById('msg');
+  if (!box) return;
+  box.textContent = msg;
+  box.className = `msg ${type}`;
+  setTimeout(() => {
+    if (box.textContent === msg) { box.textContent = ''; box.className = 'msg'; }
+  }, 3000);
+}
+
+function escapeHtml(str) {
+  return String(str ?? '').replace(/[&<>"']/g, s => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[s]));
+}
+
+// --------- NUEVO: topbar consistente ----------
+function construirTopbar(user){
+  const nav = document.getElementById('nav');
+  if (nav){
+    nav.innerHTML = '';
+    const aMon = Object.assign(document.createElement('a'), { href:'index.html', textContent:'Monitoreo' });
+    const aAle = Object.assign(document.createElement('a'), { href:'alertas.html', textContent:'Alertas' });
+    nav.appendChild(aMon);
+    nav.appendChild(aAle);
+    if (Number(user.rol_id) === 1) {
+      const aUsu = Object.assign(document.createElement('a'), { href:'usuarios.html', textContent:'Usuarios' });
+      const aUmb = Object.assign(document.createElement('a'), { href:'umbrales.html', textContent:'Umbrales' });
+      aUsu.className = 'active';
+      nav.appendChild(aUsu);
+      nav.appendChild(aUmb);
+    }
+  }
+  const session = document.getElementById('session');
+  if (session){
+    const nombre = user?.nombre || user?.email || 'Usuario';
+    const rol = roleName(user?.rol_id);
+    session.innerHTML = `
+      <span class="whoami">${escapeHtml(nombre)} · ${escapeHtml(rol)}</span>
+      <button id="btnSalir" class="btn-salir" title="Cerrar sesión">Salir</button>
+    `;
+    document.getElementById('btnSalir').onclick = () => redirectLogin();
+  }
+}
+// ----------------------------------------------
+
+document.addEventListener('DOMContentLoaded', async () => {
+  // 1) Debe existir token
+  const token = localStorage.getItem('token');
+  if (!token) return redirectLogin();
+
+  // 2) Verificá que el usuario sea ADMIN
+  try {
+    const me = await API.getMe(); // ya maneja 401 internamente
+    if (!me) return; // redirigido
+    if (Number(me.rol_id) !== 1) {
+      notify('No tenés permisos para acceder a Usuarios.', 'warn');
+      setTimeout(() => (window.location.href = '/views/index.html'), 800);
+      return;
+    }
+
+    // Topbar y UI
+    construirTopbar(me);
+    bindUI();
+    await cargarUsuarios();
+  } catch (e) {
+    console.error(e);
+    notify('Error al cargar la vista de usuarios.', 'error');
+  }
 });
 
-function cargarUsuarios() {
-    fetch('/api/usuarios')
-        .then(res => res.json())
-        .then(usuarios => {
-            const tbody = document.querySelector('#tablaUsuarios tbody');
-            tbody.innerHTML = '';
-            usuarios.forEach(u => {
-                tbody.innerHTML += `<tr>
-                    <td>${u.nombre}</td>
-                    <td>${u.email}</td>
-                    <td>${u.rol_id == 1 ? 'Admin' : 'Consulta'}</td>
-                    <td>${u.estado}</td>
-                    <td></td>
-                    <td>
-                        <button onclick="editarUsuario(${u.id})">Editar</button>
-                        <button onclick="cambiarEstadoUsuario(${u.id}, '${u.estado === 'ACTIVO' ? 'INACTIVO' : 'ACTIVO'}')">${u.estado === 'ACTIVO' ? 'Inactivar' : 'Activar'}</button>
-                        <button onclick="resetearPassword(${u.id})">ResetPass</button>
-                        <button onclick="eliminarUsuario(${u.id})" style="color:red;">Eliminar</button>
-                    </td>
-                </tr>`;
-            });
-function eliminarUsuario(id) {
-    if (confirm('¿Estás seguro de eliminar este usuario?')) {
-        fetch(`/api/usuarios/${id}`, {
-            method: 'DELETE'
-        })
-        .then(res => res.json())
-        .then(() => {
-            cargarUsuarios();
-            mostrarListaUsuarios();
-        });
-    }
-}
-        });
+function bindUI() {
+  const btnCrear = document.getElementById('btnCrearUsuario');
+  if (btnCrear) btnCrear.addEventListener('click', () => {
+    setModalUsuario({
+      titulo: 'Crear Usuario',
+      id: '',
+      nombre: '',
+      email: '',
+      rol_id: '2',
+      showPassword: true
+    });
+  });
+
+  const form = document.getElementById('formUsuario');
+  if (form) form.addEventListener('submit', onSubmitUsuario);
 }
 
-function mostrarFormularioCrear() {
-    document.getElementById('tituloModalUsuario').innerText = 'Crear Usuario';
-    document.getElementById('usuarioId').value = '';
-    document.getElementById('nombreUsuario').value = '';
-    document.getElementById('emailUsuario').value = '';
-    document.getElementById('rolUsuario').value = '2';
-    document.getElementById('passwordUsuario').value = '';
-    document.getElementById('labelPassword').style.display = '';
-    document.getElementById('passwordUsuario').style.display = '';
-    document.getElementById('modalUsuario').style.display = 'flex';
+async function apiRequest(url, opt = {}) {
+  const res = await fetch(url, opt);
+  if (res.status === 401) return redirectLogin();
+  if (res.status === 403) {
+    notify('No autorizado para realizar esta acción.', 'warn');
+    throw new Error('403 Forbidden');
+  }
+  return res;
+}
+
+async function cargarUsuarios() {
+  try {
+    const res = await apiRequest(API.base, { headers: headersAuth(false) });
+    if (!res.ok) throw new Error('No se pudo listar usuarios');
+    const usuarios = await res.json();
+    renderUsuarios(usuarios);
+  } catch (err) {
+    console.error(err);
+    notify('Error al cargar usuarios.', 'error');
+  }
+}
+
+function renderUsuarios(usuarios) {
+  const tbody = document.querySelector('#tablaUsuarios tbody');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+
+  (usuarios || []).forEach(u => {
+    const tr = document.createElement('tr');
+    tr.dataset.id = u.id;
+    tr.innerHTML = `
+      <td>${escapeHtml(u.nombre)}</td>
+      <td>${escapeHtml(u.email)}</td>
+      <td>${roleName(u.rol_id)}</td>
+      <td>${escapeHtml(u.estado)}</td>
+      <td class="acciones">
+        <button class="btn sm" data-action="edit">Editar</button>
+        <button class="btn sm" data-action="estado">${u.estado === 'ACTIVO' ? 'Inactivar' : 'Activar'}</button>
+        <button class="btn sm" data-action="reset">ResetPass</button>
+        <button class="btn sm danger" data-action="del">Eliminar</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  tbody.onclick = async (ev) => {
+    const btn = ev.target.closest('button[data-action]');
+    if (!btn) return;
+    const tr = btn.closest('tr');
+    const id = Number(tr?.dataset?.id);
+    if (!id) return;
+
+    const action = btn.dataset.action;
+    if (action === 'edit') return editarUsuario(id);
+    if (action === 'estado') {
+      const estadoActual = tr.children[3].textContent.trim();
+      const nuevoEstado = estadoActual === 'ACTIVO' ? 'INACTIVO' : 'ACTIVO';
+      return cambiarEstadoUsuario(id, nuevoEstado);
+    }
+    if (action === 'reset') return resetearPassword(id);
+    if (action === 'del') return eliminarUsuario(id);
+  };
+}
+
+function setModalUsuario({ titulo, id, nombre, email, rol_id, showPassword }) {
+  document.getElementById('tituloModalUsuario').innerText = titulo;
+  document.getElementById('usuarioId').value = id || '';
+  document.getElementById('nombreUsuario').value = nombre || '';
+  document.getElementById('emailUsuario').value = email || '';
+  document.getElementById('rolUsuario').value = rol_id || '2';
+
+  const labelPass = document.getElementById('labelPassword');
+  const inputPass = document.getElementById('passwordUsuario');
+  if (showPassword) {
+    labelPass.style.display = '';
+    inputPass.style.display = '';
+    inputPass.value = '';
+    inputPass.required = true;
+  } else {
+    labelPass.style.display = 'none';
+    inputPass.style.display = 'none';
+    inputPass.value = '';
+    inputPass.required = false;
+  }
+
+  document.getElementById('modalUsuario').style.display = 'flex';
 }
 
 function cerrarModalUsuario() {
-    document.getElementById('modalUsuario').style.display = 'none';
+  const modal = document.getElementById('modalUsuario');
+  if (modal) modal.style.display = 'none';
+  const form = document.getElementById('formUsuario');
+  if (form) form.reset();
 }
 
-document.getElementById('formUsuario').addEventListener('submit', function(e) {
-    e.preventDefault();
-    const id = document.getElementById('usuarioId').value;
-    const nombre = document.getElementById('nombreUsuario').value;
-    const email = document.getElementById('emailUsuario').value;
-    const rol_id = document.getElementById('rolUsuario').value;
-    const password = document.getElementById('passwordUsuario').value;
-    if (id) {
-        // Editar usuario
-        fetch(`/api/usuarios/${id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ nombre, email, rol_id })
-        }).then(() => {
-            cerrarModalUsuario();
-            cargarUsuarios();
-            mostrarListaUsuarios();
-        });
-    } else {
-        // Crear usuario
-        fetch('/api/usuarios', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ nombre, email, rol_id, password })
-        }).then(() => {
-            cerrarModalUsuario();
-            cargarUsuarios();
-            mostrarListaUsuarios();
-        });
-    }
-});
+async function editarUsuario(id) {
+  try {
+    const res = await apiRequest(API.base, { headers: headersAuth(false) });
+    const usuarios = await res.json();
+    const u = usuarios.find(x => x.id === id);
+    if (!u) return notify('Usuario no encontrado.', 'warn');
 
-function editarUsuario(id) {
-    fetch(`/api/usuarios`)
-        .then(res => res.json())
-        .then(usuarios => {
-            const u = usuarios.find(u => u.id === id);
-            if (u) {
-                document.getElementById('tituloModalUsuario').innerText = 'Editar Usuario';
-                document.getElementById('usuarioId').value = u.id;
-                document.getElementById('nombreUsuario').value = u.nombre;
-                document.getElementById('emailUsuario').value = u.email;
-                document.getElementById('rolUsuario').value = u.rol_id;
-                document.getElementById('labelPassword').style.display = 'none';
-                document.getElementById('passwordUsuario').style.display = 'none';
-                document.getElementById('modalUsuario').style.display = 'flex';
-            }
-        });
-}
-
-function cambiarEstadoUsuario(id, nuevoEstado) {
-    fetch(`/api/usuarios/${id}/estado`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ estado: nuevoEstado })
-    }).then(() => {
-        cargarUsuarios();
-        mostrarListaUsuarios();
+    setModalUsuario({
+      titulo: 'Editar Usuario',
+      id: u.id,
+      nombre: u.nombre,
+      email: u.email,
+      rol_id: String(u.rol_id),
+      showPassword: false
     });
+  } catch {
+    notify('No se pudo cargar el usuario.', 'error');
+  }
 }
 
-function resetearPassword(id) {
-    const nueva = prompt('Nueva contraseña para el usuario:');
-    if (nueva) {
-        fetch(`/api/usuarios/${id}/resetpass`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ password: nueva })
-        }).then(() => alert('Contraseña reseteada.'));
+async function onSubmitUsuario(e) {
+  e.preventDefault();
+  const btn = document.getElementById('btnGuardarUsuario');
+  btn.disabled = true;
+
+  const id = document.getElementById('usuarioId').value.trim();
+  const nombre = document.getElementById('nombreUsuario').value.trim();
+  const email = document.getElementById('emailUsuario').value.trim();
+  const rol_id = document.getElementById('rolUsuario').value;
+  const password = document.getElementById('passwordUsuario').value;
+
+  if (!nombre || !email || !rol_id || (!id && !password)) {
+    btn.disabled = false;
+    return notify('Campos incompletos.', 'warn');
+  }
+
+  try {
+    let res;
+    if (id) {
+      res = await apiRequest(`${API.base}/${id}`, {
+        method: 'PUT',
+        headers: headersAuth(),
+        body: JSON.stringify({ nombre, email, rol_id })
+      });
+    } else {
+      res = await apiRequest(API.base, {
+        method: 'POST',
+        headers: headersAuth(),
+        body: JSON.stringify({ nombre, email, rol_id, password })
+      });
     }
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      if (res.status === 409) notify(data?.error || 'El email ya existe.', 'warn');
+      else notify(data?.error || 'Error en la operación.', 'error');
+      btn.disabled = false;
+      return;
+    }
+
+    notify(id ? 'Usuario actualizado.' : 'Usuario creado.', 'success');
+    cerrarModalUsuario();
+    await cargarUsuarios();
+  } catch (err) {
+    console.error(err);
+    notify('Error de red.', 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function cambiarEstadoUsuario(id, nuevoEstado) {
+  try {
+    const res = await apiRequest(`${API.base}/${id}/estado`, {
+      method: 'PATCH',
+      headers: headersAuth(),
+      body: JSON.stringify({ estado: nuevoEstado })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return notify(data?.error || 'No se pudo cambiar el estado.', 'error');
+    notify('Estado actualizado.', 'success');
+    await cargarUsuarios();
+  } catch {
+    notify('Error de red al cambiar estado.', 'error');
+  }
+}
+
+async function resetearPassword(id) {
+  const nueva = prompt('Nueva contraseña para el usuario:');
+  if (!nueva) return;
+  try {
+    const res = await apiRequest(`${API.base}/${id}/resetpass`, {
+      method: 'PATCH',
+      headers: headersAuth(),
+      body: JSON.stringify({ password: nueva })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return notify(data?.error || 'No se pudo resetear la contraseña.', 'error');
+    notify('Contraseña reseteada.', 'success');
+  } catch {
+    notify('Error de red al resetear la contraseña.', 'error');
+  }
+}
+
+async function eliminarUsuario(id) {
+  if (!confirm('¿Eliminar definitivamente este usuario?')) return;
+  try {
+    const res = await apiRequest(`${API.base}/${id}`, {
+      method: 'DELETE',
+      headers: headersAuth(false)
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return notify(data?.error || 'No se pudo eliminar.', 'error');
+    notify(data?.mensaje || 'Operación realizada.', 'success');
+    await cargarUsuarios();
+  } catch {
+    notify('Error de red al eliminar.', 'error');
+  }
 }

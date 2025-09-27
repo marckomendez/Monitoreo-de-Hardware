@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Umbrales - DIMO</title>
+  <link rel="stylesheet" href="/public/css/estilo.css"/>
+  <link rel="icon" type="image/png" href="/dimo_icon_32.png"/>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand" onclick="location.href='index.html'">DIMO</div>
+    <nav id="nav"></nav>
+    <div class="session" id="session"></div>
+  </header>
+
+  <main class="wrap">
+    <div class="alertas-card">
+      <div class="filters">
+        <label>
+          Métrica:
+          <input id="fMetrica" list="metList" placeholder="(todas)"/>
+          <datalist id="metList">
+            <option value="CPU_TEMP_C"></option>
+            <option value="RAM_USED_GB"></option>
+            <option value="DISK_READ_MBPS"></option>
+            <option value="DISK_WRITE_MBPS"></option>
+            <option value="UPTIME_SEC"></option>
+          </datalist>
+        </label>
+        <button id="btnBuscar" class="btn">Buscar</button>
+        <button id="btnNuevo" class="btn">Nuevo umbral</button>
+      </div>
+
+      <h3>Umbrales</h3>
+      <div id="msg" class="msg"></div>
+      <table class="tabla-usuarios" id="tblUmbrales">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Métrica</th>
+            <th>Operador</th>
+            <th>Valor</th>
+            <th>Severidad</th>
+            <th>Creado por</th>
+            <th>Creado en</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </main>
+
+  <div id="modalUmbral" class="modal-usuario" style="display:none;">
+    <div class="modal-contenido">
+      <h3 id="tituloModalUmbral">Nuevo Umbral</h3>
+      <form id="formUmbral">
+        <input type="hidden" id="umbralId"/>
+        <label>Métrica</label>
+        <input type="text" id="metrica" list="metList" required/>
+
+        <label>Operador</label>
+        <select id="operador">
+          <option value=">">&gt;</option>
+          <option value=">=">&ge;</option>
+          <option value="<">&lt;</option>
+          <option value="<=">&le;</option>
+        </select>
+
+        <label>Valor</label>
+        <input type="number" id="valor" step="0.01" required/>
+
+        <label>Severidad</label>
+        <select id="severidad">
+          <option value="ADVERTENCIA">ADVERTENCIA</option>
+          <option value="CRITICA">CRITICA</option>
+        </select>
+
+        <div class="modal-botones">
+          <button type="submit" id="btnGuardarUmbral">Guardar</button>
+          <button type="button" onclick="cerrarModalUmbral()">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="/public/js/umbrales.js" defer></script>
+</body>
+</html>
