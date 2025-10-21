@@ -5,6 +5,17 @@ const si = require('systeminformation');
 const os = require('os');
 const { sql, poolPromise } = require('../db');
 
+// Cache host id to avoid querying/inserting Host every tick
+let _cachedHostId = null;
+
+// Lazy io getter to avoid repeated try/catch and circular require cost
+let _cachedIO = undefined;
+function getIO() {
+  if (_cachedIO !== undefined) return _cachedIO;
+  try { _cachedIO = require('../server').io; } catch (e) { _cachedIO = null; }
+  return _cachedIO;
+}
+
 // Helper: ejecuta una fn async de si.* y si falla, devuelve fallback
 async function safeSi(fn, fallback = {}) {
   try { return await fn(); } catch { return fallback; }
@@ -17,6 +28,7 @@ function safeTime() {
 
 /** Obtiene/crea el Host con columnas NOT NULL cubiertas */
 async function ensureHost(pool) {
+  if (_cachedHostId) return _cachedHostId;
   const [osInfo, cpu, mem] = await Promise.all([
     safeSi(() => si.osInfo()),
     safeSi(() => si.cpu()),
@@ -33,7 +45,10 @@ async function ensureHost(pool) {
     .input('nombre', sql.NVarChar, nombre)
     .query('SELECT id FROM dimo.Host WHERE nombre = @nombre');
 
-  if (rs.recordset.length > 0) return rs.recordset[0].id;
+  if (rs.recordset.length > 0) {
+    _cachedHostId = rs.recordset[0].id;
+    return _cachedHostId;
+  }
 
   // Insertar host
   rs = await pool.request()
@@ -47,7 +62,8 @@ async function ensureHost(pool) {
       VALUES (@nombre, @so, @cpu_model, @ram_total_gb)
     `);
 
-  return rs.recordset[0].id;
+  _cachedHostId = rs.recordset[0].id;
+  return _cachedHostId;
 }
 
 /** Inserta lectura y devuelve id (BIGINT en tu esquema) */
@@ -71,38 +87,55 @@ async function evaluarUmbrales(pool, hostId, metrica, valor, lecturaId) {
     .input('metrica', sql.NVarChar, metrica)
     .query(`SELECT id, operador, valor, severidad FROM dimo.Umbral WHERE metrica = @metrica`);
 
-  const abre = (op, v, t) => (op === '>'  ? v >  t
+  const abrirSi = (op, v, t) => (op === '>'  ? v >  t
     : op === '>=' ? v >= t
     : op === '<'  ? v <  t
     : op === '<=' ? v <= t
     : false);
 
   const abiertas = [];
-  for (const um of u.recordset) {
-    if (!abre(um.operador, Number(valor), Number(um.valor))) continue;
+  const ums = u.recordset || [];
+  if (ums.length === 0) return abiertas;
 
-    const existe = await pool.request()
+  // Obtener los umbral ids candidatos que cumplen la condicion
+  const umCandidatos = ums.filter(um => abrirSi(um.operador, Number(valor), Number(um.valor)));
+  if (umCandidatos.length === 0) return abiertas;
+
+  // Obtener en una sola query los umbrales que ya tienen alerta ABIERTA para este host
+  const ids = umCandidatos.map(x => Number(x.id)).filter(Number.isFinite);
+  let existentesSet = new Set();
+  if (ids.length > 0) {
+    const idsList = ids.join(',');
+    const existeRs = await pool.request()
       .input('host_id', sql.Int, hostId)
-      .input('umbral_id', sql.Int, um.id)
       .query(`
-        SELECT TOP 1 id FROM dimo.Alerta
-        WHERE host_id = @host_id AND umbral_id = @umbral_id AND estado = N'ABIERTA'
-        ORDER BY id DESC
+        SELECT DISTINCT umbral_id FROM dimo.Alerta
+        WHERE host_id = @host_id AND estado = N'ABIERTA' AND umbral_id IN (${idsList})
       `);
-    if (existe.recordset.length > 0) continue;
-
-    await pool.request()
-      .input('host_id', sql.Int, hostId)
-      .input('umbral_id', sql.Int, um.id)
-      .input('lectura_id', sql.BigInt, lecturaId) // BIGINT
-      .input('severidad', sql.NVarChar, um.severidad)
-      .query(`
-        INSERT INTO dimo.Alerta (host_id, umbral_id, lectura_id, severidad, estado, creado_en)
-        VALUES (@host_id, @umbral_id, @lectura_id, @severidad, N'ABIERTA', SYSUTCDATETIME())
-      `);
-
-    abiertas.push({ umbral_id: um.id, severidad: um.severidad });
+    (existeRs.recordset || []).forEach(r => existentesSet.add(Number(r.umbral_id)));
   }
+
+  // Insertar alertas solo para los umbrales que no tienen alerta abierta
+  const insertPromises = [];
+  for (const um of umCandidatos) {
+    if (existentesSet.has(Number(um.id))) continue;
+    insertPromises.push(
+      pool.request()
+        .input('host_id', sql.Int, hostId)
+        .input('umbral_id', sql.Int, um.id)
+        .input('lectura_id', sql.BigInt, lecturaId)
+        .input('severidad', sql.NVarChar, um.severidad)
+        .query(`
+          INSERT INTO dimo.Alerta (host_id, umbral_id, lectura_id, severidad, estado, creado_en)
+          VALUES (@host_id, @umbral_id, @lectura_id, @severidad, N'ABIERTA', SYSUTCDATETIME())
+        `)
+        .then(() => ({ umbral_id: um.id, severidad: um.severidad }))
+        .catch(err => { console.error('[evaluarUmbrales] error insert alerta', err); return null; })
+    );
+  }
+
+  const results = await Promise.all(insertPromises);
+  results.forEach(r => { if (r) abiertas.push(r); });
   return abiertas;
 }
 
@@ -111,7 +144,7 @@ async function evaluarUmbrales(pool, hostId, metrica, valor, lecturaId) {
 async function capturarYEvaluar(pool) {
   const hostId = await ensureHost(pool);
 
-  // Llamadas seguras
+  // Llamadas seguras en paralelo
   const [mem, diskIO, temp] = await Promise.all([
     safeSi(() => si.mem()),
     safeSi(() => si.disksIO()),
@@ -147,33 +180,36 @@ async function capturarYEvaluar(pool) {
     lecturas.push({ metrica: 'UPTIME_SEC', valor: Math.max(0, Math.round(up)), unidad: 's' });
   }
 
-  // Inserta y evalúa
+  // Inserta todas las lecturas en paralelo (las inserciones son independientes)
   const resultados = [];
   const poolResolved = await poolPromise;
-  // --- EMITIR POR WEBSOCKET ---
-  let io;
-  try {
-    io = require('../server').io;
-  } catch {}
-  for (const l of lecturas) {
-    try {
-      const lecturaId = await insertLectura(poolResolved, hostId, l.metrica, l.valor, l.unidad);
-      const abiertas = await evaluarUmbrales(poolResolved, hostId, l.metrica, l.valor, lecturaId);
-      resultados.push({ ...l, lectura_id: lecturaId, alertas_abiertas: abiertas });
-      // Emitir evento en tiempo real
-      if (io) {
-        io.emit('nueva_lectura', {
-          metrica: l.metrica,
-          valor: l.valor,
-          unidad: l.unidad,
-          tomado_en: new Date().toISOString(),
-          host_id: hostId
-        });
-      }
-    } catch (e) {
-      console.error('[captura] error insertando/evaluando', l.metrica, e?.message || e);
-    }
-  }
+  const insertPromises = lecturas.map(l =>
+    insertLectura(poolResolved, hostId, l.metrica, l.valor, l.unidad)
+      .then(id => ({ l, id }))
+      .catch(err => { console.error('[captura] insertLectura error', err); return null; })
+  );
+  const inserted = (await Promise.all(insertPromises)).filter(Boolean);
+
+  // Evaluar umbrales para cada lectura en paralelo
+  const io = getIO();
+  const evalPromises = inserted.map(item =>
+    evaluarUmbrales(poolResolved, hostId, item.l.metrica, item.l.valor, item.id)
+      .then(abiertas => {
+        resultados.push({ ...item.l, lectura_id: item.id, alertas_abiertas: abiertas });
+        // Emitir evento en tiempo real (no bloqueante)
+        try {
+          if (io) io.emit('nueva_lectura', {
+            metrica: item.l.metrica,
+            valor: item.l.valor,
+            unidad: item.l.unidad,
+            tomado_en: new Date().toISOString(),
+            host_id: hostId
+          });
+        } catch (e) { /* ignore emission errors */ }
+      })
+      .catch(err => { console.error('[captura] evaluarUmbrales error', err); })
+  );
+  await Promise.all(evalPromises);
 
   if (process.env.DEBUG_CAPTURE === 'true') {
     console.log('[captura]', { hostId, lecturas: resultados });

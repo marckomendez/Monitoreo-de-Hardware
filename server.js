@@ -8,7 +8,7 @@ const usuariosRoutes = require('./routes/usuarios');
 const auditRoutes = require('./routes/audit');
 const monitorRoutes = require('./routes/monitor');
 const umbralesRoutes = require('./routes/umbrales');
-const reportRoutes = require('./routes/report'); // reportería
+const reportRoutes = require('./routes/report');
 
 const { poolPromise } = require('./db');
 const scheduler = require('./utils/captureScheduler');
@@ -36,7 +36,6 @@ app.get('/healthz', async (_req, res) => {
 });
 
 
-// --- INICIO SOCKET.IO ---
 const http = require('http');
 const server = http.createServer(app);
 const { Server } = require('socket.io');
@@ -44,18 +43,14 @@ const io = new Server(server, { cors: { origin: "*" } });
 
 io.on('connection', (socket) => {
   console.log('Cliente conectado a WebSocket');
-  // Puedes enviar un mensaje de bienvenida o histórico si quieres
 });
 
-// Exporta io para usarlo en otros módulos
 module.exports.io = io;
-// --- FIN SOCKET.IO ---
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, async () => {
   console.log(`Servidor escuchando en el puerto ${PORT}`);
 
-  // Arranque condicional del scheduler
   try {
     if (String(process.env.CAPTURE_ENABLED || 'false').toLowerCase() === 'true') {
       const pool = await poolPromise;

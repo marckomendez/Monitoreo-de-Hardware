@@ -79,6 +79,7 @@ function construirTopbar(user) {
     session.innerHTML = `
       <span class="whoami">${escapeHtml(nombre)} · ${escapeHtml(rol)}</span>
       <button id="btnCapturar" class="btn-salir" title="Capturar ahora">Capturar</button>
+      <button id="btnPDFDash" class="btn-salir" title="Exportar PDF">Exportar PDF</button>
       <button id="btnSalir" class="btn-salir" title="Cerrar sesión">Salir</button>
     `;
     document.getElementById('btnSalir').onclick = logoutAndRedirect;
@@ -97,7 +98,150 @@ function construirTopbar(user) {
         btn.disabled = false;
       }
     };
+    document.getElementById('btnPDFDash').onclick = async () => {
+      const btn = document.getElementById('btnPDFDash');
+      btn.disabled = true;
+      try {
+        await exportarPDFDashboard();
+      } catch (e) {
+        console.error(e);
+        toast('No se pudo generar PDF', 'warn');
+      } finally { btn.disabled = false; }
+    };
   }
+}
+
+// Exportar PDF del dashboard: captura #contenido (las 3 tarjetas)
+// Cache del logo convertido a dataURL para evitar convertirlo cada vez
+let _cachedLogoDataUrl = null;
+// Cache de los últimos datos hardware para generar PDF rápidamente
+let lastHardwareData = null;
+
+async function exportarPDFDashboard() {
+  // Generar PDF textual con jsPDF + AutoTable usando cache local si está disponible
+  toast('Generando PDF (texto)...');
+  let hardware, temp, uptime, diskSpeed;
+  let source = 'cache';
+  if (lastHardwareData) {
+    ({ hardware, temp, uptime, diskSpeed } = lastHardwareData);
+  } else {
+    source = 'api';
+    try {
+      const [hardwareRes, tempRes, uptimeRes, diskSpeedRes] = await Promise.all([
+        apiGET('/api/hardware'),
+        apiGET('/api/hardware/temp'),
+        apiGET('/api/hardware/uptime'),
+        apiGET('/api/hardware/diskspeed')
+      ]);
+
+      hardware = await hardwareRes.json();
+      temp = await tempRes.json();
+      uptime = await uptimeRes.json();
+      diskSpeed = await diskSpeedRes.json();
+    } catch (err) {
+      console.error(err);
+      return toast('No se pudo obtener datos de hardware', 'warn');
+    }
+  }
+
+    const cpu = hardware.cpu || {};
+    const ram = hardware.ram || {};
+    const discos = hardware.discos || [];
+
+    // Calcular valores de RAM (consistentes con mostrarHardware)
+    const total = ram?.total ?? 0;
+    const available = ram?.available ?? 0;
+    const cached = ram?.cached ?? 0;
+    const ramTotalGB = (total / (1024 ** 3)).toFixed(2);
+    const ramDisponibleGB = (available / (1024 ** 3)).toFixed(2);
+    const ramUsadaGB = (Number(ramTotalGB) - Number(ramDisponibleGB)).toFixed(2);
+    const ramPorcentajeUsada = (+ramTotalGB > 0) ? ((ramUsadaGB / ramTotalGB) * 100).toFixed(1) : '0.0';
+    const ramCacheGB = (cached / (1024 ** 3)).toFixed(2);
+
+    // CPU
+    const cpu_nucleos = cpu?.cores ? `${cpu.cores} núcleos` : 'N/A';
+    const cpu_modelo = `${cpu?.manufacturer ?? ''} ${cpu?.brand ?? ''}`.trim() || 'N/A';
+    const cpu_velocidad = cpu?.speed ? `${cpu.speed} GHz` : 'N/A';
+    const cpu_temperatura = (temp?.main !== undefined) ? `${temp.main} °C` : 'N/A';
+    const cpu_uptime = formatUptime(uptime?.uptime);
+
+    // Discos
+    const discos_info = (discos || []).map(d => ({
+      modelo: d?.name ?? '-',
+      tipo: d?.type ?? '-',
+      tamano: ((Number(d?.size ?? 0) / (1024 ** 3)).toFixed(2) + ' GB')
+    }));
+
+    // Preparar PDF
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+
+    // Intentar cargar logo SVG y convertir a PNG para jsPDF (cacheado)
+    try {
+      if (!_cachedLogoDataUrl) {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 1500); // 1.5s timeout
+        const svgText = await (await fetch('/dimo_icon_ecg.svg', { signal: controller.signal })).text();
+        clearTimeout(timeout);
+        // convertir a base64 y cargar en Image
+        const svg64 = btoa(unescape(encodeURIComponent(svgText)));
+        const svgDataUrl = 'data:image/svg+xml;base64,' + svg64;
+        const img = new Image();
+        img.src = svgDataUrl;
+        await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; });
+        const canvas = document.createElement('canvas');
+        const w = 60; // ancho en px para el logo en el PDF
+        const h = Math.round(img.height * (w / img.width));
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        // fondo blanco para logos transparentes
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, w, h);
+        ctx.drawImage(img, 0, 0, w, h);
+        _cachedLogoDataUrl = canvas.toDataURL('image/png');
+      }
+      if (_cachedLogoDataUrl) pdf.addImage(_cachedLogoDataUrl, 'PNG', 40, 28, 60, 60);
+    } catch (e) {
+      console.warn('No se pudo cargar logo para PDF (timeout o error)', e);
+    }
+
+    // Encabezado
+    pdf.setFontSize(14);
+    pdf.text('Reporte de Hardware (DIMO)', 120, 44);
+    pdf.setFontSize(10);
+    pdf.text(`Generado: ${new Date().toLocaleString()}`, 120, 62);
+
+    // CPU table
+    const cpuRows = [
+      ['Número de núcleos', cpu_nucleos],
+      ['Modelo / Marca / Serie', cpu_modelo],
+      ['Velocidad', cpu_velocidad],
+      ['Temperatura', cpu_temperatura],
+      ['Tiempo de actividad', cpu_uptime]
+    ];
+    pdf.autoTable({ startY: 90, head: [['CPU', 'Valor']], body: cpuRows, theme: 'grid', styles: { fontSize: 10 } });
+
+    // RAM table
+    const yAfterCpu = pdf.lastAutoTable.finalY || 110;
+    const ramRows = [
+      ['Porcentaje de uso', `${ramPorcentajeUsada}%`],
+      ['RAM usada', `${ramUsadaGB} GB`],
+      ['RAM disponible', `${ramDisponibleGB} GB`],
+      ['RAM total', `${ramTotalGB} GB`],
+      ['Cache usada', `${ramCacheGB} GB`]
+    ];
+    pdf.autoTable({ startY: yAfterCpu + 8, head: [['RAM', 'Valor']], body: ramRows, theme: 'grid', styles: { fontSize: 10 } });
+
+    // DISCO table
+    const yAfterRam = pdf.lastAutoTable.finalY || (yAfterCpu + 120);
+    const discoRows = discos_info.length > 0 ? discos_info.map((d, i) => [
+      `Disco ${i+1} - Modelo: ${d.modelo}`, `Tipo: ${d.tipo} | Tamaño: ${d.tamano}`
+    ]) : [['Sin discos detectados', '']];
+    discoRows.unshift(['Cantidad de discos', (discos_info.length || 0).toString()]);
+    pdf.autoTable({ startY: yAfterRam + 8, head: [['Disco Duro', 'Valor']], body: discoRows, theme: 'grid', styles: { fontSize: 10 } });
+
+    const nombre = `reporte_hardware_${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.pdf`;
+    pdf.save(nombre);
+    toast(`PDF generado (${source})`, 'success');
 }
 
 function toast(msg, type='info') {
@@ -133,6 +277,9 @@ async function obtenerHardware() {
     const uptime = await uptimeRes.json();
     const diskSpeed = await diskSpeedRes.json();
 
+    const full = { hardware, temp, uptime, diskSpeed };
+    // Guardar cache para export rápido
+    lastHardwareData = { hardware, temp, uptime, diskSpeed };
     mostrarHardware({ ...hardware, temp, uptime, diskSpeed });
   } catch (error) {
     const cont = document.getElementById('contenido');
