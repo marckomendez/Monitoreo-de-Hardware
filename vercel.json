@@ -1,79 +1,32 @@
 {
-  "version": 2,
-  "name": "monitoreo-hardware-frontend",
-  "builds": [
+  "rewrites": [
     {
-      "src": "views/**/*",
-      "use": "@vercel/static"
+      "source": "/",
+      "destination": "/views/index.html"
     },
     {
-      "src": "public/**/*",
-      "use": "@vercel/static"
+      "source": "/login",
+      "destination": "/views/login.html"
     },
     {
-      "src": "*.svg",
-      "use": "@vercel/static"
+      "source": "/alertas",
+      "destination": "/views/alertas.html"
     },
     {
-      "src": "*.png",
-      "use": "@vercel/static"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/",
-      "dest": "/views/index.html"
+      "source": "/bitacora",
+      "destination": "/views/bitacora.html"
     },
     {
-      "src": "/login",
-      "dest": "/views/login.html"
+      "source": "/reportes",
+      "destination": "/views/reportes.html"
     },
     {
-      "src": "/alertas",
-      "dest": "/views/alertas.html"
+      "source": "/umbrales",
+      "destination": "/views/umbrales.html"
     },
     {
-      "src": "/bitacora",
-      "dest": "/views/bitacora.html"
-    },
-    {
-      "src": "/reportes",
-      "dest": "/views/reportes.html"
-    },
-    {
-      "src": "/umbrales",
-      "dest": "/views/umbrales.html"
-    },
-    {
-      "src": "/usuarios",
-      "dest": "/views/usuarios.html"
-    },
-    {
-      "src": "/public/(.*)",
-      "dest": "/public/$1"
-    },
-    {
-      "src": "/(.*\\.(svg|png|ico))",
-      "dest": "/$1"
-    }
-  ],
-  "headers": [
-    {
-      "source": "/(.*)",
-      "headers": [
-        {
-          "key": "X-Content-Type-Options",
-          "value": "nosniff"
-        },
-        {
-          "key": "X-Frame-Options",
-          "value": "DENY"
-        },
-        {
-          "key": "X-XSS-Protection",
-          "value": "1; mode=block"
-        }
-      ]
+      "source": "/usuarios",
+      "destination": "/views/usuarios.html"
     }
   ]
 }
