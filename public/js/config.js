@@ -3,12 +3,12 @@ window.APP_CONFIG = {
   // URL del backend API
   API_BASE_URL: window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
     ? 'http://localhost:3000'  // Desarrollo local
-    : 'https://monitoreo-hardware-backend.onrender.com', // Producción (actualizar con tu URL de Render)
+    : 'https://monitoreo-de-hardware.onrender.com', // Producción
   
   // URL del WebSocket
   WS_URL: window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     ? 'http://localhost:3000'  // Desarrollo local
-    : 'https://monitoreo-hardware-backend.onrender.com', // Producción
+    : 'https://monitoreo-de-hardware.onrender.com', // Producción
   
   // Configuración de la aplicación
   APP_NAME: 'Sistema de Monitoreo de Hardware',
