@@ -14,7 +14,15 @@ const { poolPromise } = require('./db');
 const scheduler = require('./utils/captureScheduler');
 
 const app = express();
-app.use(cors());
+
+// Configuración de CORS para producción
+const corsOptions = {
+  origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+  credentials: true,
+  optionsSuccessStatus: 200
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.static(__dirname));
 
@@ -39,7 +47,14 @@ app.get('/healthz', async (_req, res) => {
 const http = require('http');
 const server = http.createServer(app);
 const { Server } = require('socket.io');
-const io = new Server(server, { cors: { origin: "*" } });
+
+// Configuración de Socket.IO con CORS apropiado
+const io = new Server(server, { 
+  cors: { 
+    origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+    credentials: true
+  } 
+});
 
 io.on('connection', (socket) => {
   console.log('Cliente conectado a WebSocket');

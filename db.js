@@ -8,8 +8,9 @@ const cfg = {
   server: process.env.DB_HOST || '127.0.0.1',
   database: process.env.DB_NAME,
   options: {
-    encrypt: false,
-    trustServerCertificate: true,
+    encrypt: process.env.DB_ENCRYPT === 'true' || process.env.NODE_ENV === 'production',
+    trustServerCertificate: process.env.NODE_ENV !== 'production',
+    enableArithAbort: true
   },
   pool: {
     max: 10,
